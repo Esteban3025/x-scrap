@@ -1,65 +1,54 @@
 import puppeteer from 'puppeteer';
-import pLimit from 'p-limit';
 import { supabase } from './supabaseclient.js';
 
 (async () => {
-
-  const URL = "https://monsnode.com/?ranking=1&period=24h";
+  const URL = "https://x.com/5ro4";
 
   const browser = await puppeteer.launch({
     headless: false
-  })
+  });
 
   const page = await browser.newPage();
-
-  await page.goto(URL, {waitUntil: "networkidle2"})
+  await page.goto(URL, { waitUntil: "networkidle2" });
 
   const title = await page.title();
-  console.log(`Titulo de la pagina, ${title}`);
-  
-//   const links = await page.evaluate(() =>
-//   Array.from(document.querySelectorAll('.listn a'), a => a.href)
-// ).then(arr => arr.filter(h => h.startsWith('http')));
+  console.log(`Titulo de la pagina: ${title}`);
 
-// // 2. Limitás la concurrencia a 10
-// const limit = pLimit(2);
+  // Esperar a que carguen los tweets
+  await page.waitForSelector('article[data-testid="tweet"]', { timeout: 10000 });
 
-// // 3. Función que entra, saca el src y cierra
-// const scrapeVideo = async (url) => {
-//   const p = await browser.newPage();
-//   await p.goto(url, { waitUntil: 'domcontentloaded' });
-//   const src = await p.evaluate(() => 
-//     document.querySelector('a')?.href || null
-//   );
-//   await p.close();
-//   return { url, src };
-// };
+  // Scroll para cargar contenido
+  await page.evaluate(() => window.scrollTo(0, 2000));
 
-// // 4. Ejecutás todo en paralelo (máx. 10 a la vez)
-// const results = await Promise.all(links.map(l => limit(() => scrapeVideo(l))));
+  for (let i = 0; i < 3; i++) {
+    await page.evaluate(() => window.scrollTo(0, 2000));
+  }
 
-// results.map(e => {
-//   const UploadVideos = async () => {
-//     const uniqueId = "id" + Math.random().toString(16).slice(2);
-// const { error } = await supabase.from('videos').upsert([
-//         { 
-//           id: uniqueId,
-//           title: `Video${uniqueId}`,
-//           subreddit: `unknow`,
-//           url: e.src,
-//           type: 'video',
-//           created_utc: Math.floor(Date.now() / 1000)
-//         }
-//       ], { onConflict: ['id'] });
-  
-//    if (error) console.error('Error al insertar en DB:', error);
-//   }
-//   UploadVideos();
-// }
-// )
+  const post = await page.evaluate(() => {
+    const articles = Array.from(
+      document.querySelectorAll('article[data-testid="tweet"]')
+    );
 
-// console.log(results);
-// console.log(results.length);
-// await browser.close();
+    //  (implicit return)
+    return articles.map(article => ({
+      text: article.querySelector('div[data-testid="tweetText"]')?.innerText || 'Sin texto',
+      images: Array.from(article.querySelectorAll('div[data-testid="tweetPhoto"] img'))
+        .map(img => img.src),
+      videos: Array.from(article.querySelectorAll('div[data-testid="videoComponent"] img'))
+        .map(img => img.src)
+    }));
+  });
 
+  console.log('Total de posts:', post.length);
+  console.log(post);
+
+  await browser.close();
 })();
+
+
+
+// document.querySelectorAll('div[data-testid="tweetText"').innerText
+
+/*
+Intercepta la respuesta de el video y converti la playlist en un video con fmpeg
+*/
